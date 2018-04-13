@@ -23,6 +23,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.core.Is.is;
 
+import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,11 +43,16 @@ import cucumber.api.java8.En;
 public class PackStepdefs implements En {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private static final String ALPHA_REST_ADDRESS = "alpha.rest.address";
-  private static final String CAR_SERVICE_ADDRESS = "car.service.address";
-  private static final String HOTEL_SERVICE_ADDRESS = "hotel.service.address";
-  private static final String BOOKING_SERVICE_ADDRESS = "booking.service.address";
-  private static final String INFO_SERVICE_URI = "info.service.uri";
+//  private static final String ALPHA_REST_ADDRESS = "alpha.rest.address";
+//  private static final String CAR_SERVICE_ADDRESS = "car.service.address";
+//  private static final String HOTEL_SERVICE_ADDRESS = "hotel.service.address";
+//  private static final String BOOKING_SERVICE_ADDRESS = "booking.service.address";
+//  private static final String INFO_SERVICE_URI = "info.service.uri";
+  private static final String ALPHA_REST_ADDRESS = "http://127.0.0.1:8090";
+  private static final String CAR_SERVICE_ADDRESS = "http://127.0.0.1:8082";
+  private static final String HOTEL_SERVICE_ADDRESS = "http://127.0.0.1:8081";
+  private static final String BOOKING_SERVICE_ADDRESS = "http://127.0.0.1:8083";
+  private static final String INFO_SERVICE_URI = "/info";
   private static final String[] addresses = {CAR_SERVICE_ADDRESS, HOTEL_SERVICE_ADDRESS};
 
   private static final Consumer<Map<String, String>[]> NO_OP_CONSUMER = (dataMap) -> {
@@ -56,25 +62,33 @@ public class PackStepdefs implements En {
 
   public PackStepdefs() {
     Given("^Car Service is up and running$", () -> {
-      probe(System.getProperty(CAR_SERVICE_ADDRESS));
+      probe(CAR_SERVICE_ADDRESS);
     });
 
     And("^Hotel Service is up and running$", () -> {
-      probe(System.getProperty(HOTEL_SERVICE_ADDRESS));
+      probe(HOTEL_SERVICE_ADDRESS);
     });
 
     And("^Booking Service is up and running$", () -> {
-      probe(System.getProperty(BOOKING_SERVICE_ADDRESS));
+      probe(BOOKING_SERVICE_ADDRESS);
     });
 
     And("^Alpha is up and running$", () -> {
-      probe(System.getProperty(ALPHA_REST_ADDRESS));
+      probe(ALPHA_REST_ADDRESS);
     });
 
     Given("^Install the byteman script ([A-Za-z0-9_\\.]+) to ([A-Za-z]+) Service$", (String script, String service) -> {
       log.info("Install the byteman script {} to {} service", script, service);
       List<String> rules = new ArrayList<>();
-      rules.add("target/test-classes/" + script);
+//      rules.add("target/test-classes/" + script);
+      rules.add("/home/bo/opensource/incubator-servicecomb-saga/acceptance-tests/acceptance-pack/src/test/resources/" + script);
+
+//      String path = "/home/bo/opensource/incubator-servicecomb-saga/acceptance-tests/acceptance-pack/src/test/resources/booking_timeout.btm";
+//      File file = new File(path);
+//      System.out.println(file.isFile() && file.canRead());
+
+
+
       Submit bm = getBytemanSubmit(service);
       bm.addRulesFromFiles(rules);
     });
@@ -87,7 +101,7 @@ public class PackStepdefs implements En {
           .pathParam("rooms", rooms)
           .pathParam("cars", cars)
           .when()
-          .post(System.getProperty("booking.service.address") + "/booking/{name}/{rooms}/{cars}");
+          .post("http://127.0.0.1:8083" + "/booking/{name}/{rooms}/{cars}");
     });
 
     Then("^Alpha records the following events$", (DataTable dataTable) -> {
@@ -96,15 +110,15 @@ public class PackStepdefs implements En {
           map.keySet().retainAll(dataTable.topCells());
       };
 
-      dataMatches(System.getProperty(ALPHA_REST_ADDRESS) + "/events", dataTable, columnStrippingConsumer);
+      dataMatches( "http://127.0.0.1:8090" + "/events", dataTable, columnStrippingConsumer);
     });
 
     And("^Car Service contains the following booking orders$", (DataTable dataTable) -> {
-      dataMatches(System.getProperty(CAR_SERVICE_ADDRESS) + "/bookings", dataTable, NO_OP_CONSUMER);
+      dataMatches("http://127.0.0.1:8082"+ "/bookings", dataTable, NO_OP_CONSUMER);
     });
 
     And("^Hotel Service contains the following booking orders$", (DataTable dataTable) -> {
-      dataMatches(System.getProperty(HOTEL_SERVICE_ADDRESS) + "/bookings", dataTable, NO_OP_CONSUMER);
+      dataMatches("http://127.0.0.1:8081" + "/bookings", dataTable, NO_OP_CONSUMER);
     });
   }
 
@@ -114,14 +128,14 @@ public class PackStepdefs implements En {
     for (String address : addresses) {
       given()
           .when()
-          .delete(System.getProperty(address) + "/bookings")
+          .delete(address + "/bookings")
           .then()
           .statusCode(is(200));
     }
 
     given()
         .when()
-        .delete(System.getProperty(ALPHA_REST_ADDRESS) + "/events")
+        .delete(ALPHA_REST_ADDRESS + "/events")
         .then()
         .statusCode(is(200));
 
@@ -170,7 +184,7 @@ public class PackStepdefs implements En {
   }
 
   private void probe(String address) {
-    String infoURI = System.getProperty(INFO_SERVICE_URI);
+    String infoURI = INFO_SERVICE_URI;
     if (isEmpty(infoURI)) {
       infoURI = "/info";
     }
@@ -191,8 +205,21 @@ public class PackStepdefs implements En {
     if (submits.containsKey(service)) {
       return submits.get(service);
     } else {
-      String address = System.getProperty("byteman.address");
-      String port = System.getProperty(service.toLowerCase() + ".byteman.port");
+//      String address = System.getProperty("byteman.address");
+      String address = "127.0.0.1";
+//      String port = System.getProperty(service.toLowerCase() + ".byteman.port");
+      String port = "";
+      switch (service){
+        case "Booking":
+          port = "9093";
+          break;
+        case "Car":
+          port = "9091";
+          break;
+        case "Hotel":
+          port = "9092";
+          break;
+      }
       Submit bm = new Submit(address, Integer.parseInt(port));
       submits.put(service, bm);
       return bm;

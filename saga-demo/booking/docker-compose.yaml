@@ -36,6 +36,8 @@ services:
     hostname: alpha-server
     links:
       - "database:postgresql.servicecomb.io"
+    ports:
+      - "8090:8090"
     environment:
       - JAVA_OPTS=-Dspring.profiles.active=prd
     healthcheck:
@@ -54,6 +56,9 @@ services:
       - "alpha:alpha-server.servicecomb.io"
     ports:
       - "8081:8080"
+      - "9092:9091"
+    environment:
+      - JAVA_OPTS=-Dorg.jboss.byteman.debug=true -Dorg.jboss.byteman.verbose=true -javaagent:/maven/saga/byteman.jar=port:9091,address:0.0.0.0,listen:true
     depends_on:
       alpha:
         condition: service_healthy
@@ -65,6 +70,9 @@ services:
       - "alpha:alpha-server.servicecomb.io"
     ports:
       - "8082:8080"
+      - "9091:9091"
+    environment:
+      - JAVA_OPTS=-Dorg.jboss.byteman.debug=true -Dorg.jboss.byteman.verbose=true -javaagent:/maven/saga/byteman.jar=port:9091,address:0.0.0.0,listen:true
     depends_on:
       alpha:
         condition: service_healthy
@@ -78,6 +86,9 @@ services:
       - "pack-car:pack-car.servicecomb.io"
     ports:
       - "8083:8080"
+      - "9093:9091"
+    environment:
+      - JAVA_OPTS=-Dorg.jboss.byteman.debug=true -Dorg.jboss.byteman.verbose=true -javaagent:/maven/saga/byteman.jar=port:9091,address:0.0.0.0,listen:true
     depends_on:
       - pack-hotel
       - pack-car
